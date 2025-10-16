@@ -10,41 +10,60 @@ import { showToast } from '../actions/toast';
 import Toast from './Toast';
 
 describe(`Toast`, () => {
-  it('is hidden by default', () => {
+  it('has persistent live region for screen readers', () => {
     reduxRender(<Toast />);
-    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    const liveRegion = screen.getByRole('status');
+    expect(liveRegion).toBeInTheDocument();
+    expect(liveRegion).toHaveClass('sr-only');
+    expect(liveRegion).toHaveAttribute('aria-live', 'polite');
+    expect(liveRegion).toHaveAttribute('aria-atomic', 'true');
   });
 
-  it('opens when an action is dispatched', async () => {
+  it('visual toast is hidden by default', () => {
+    reduxRender(<Toast />);
+    expect(screen.queryByText(/./)).not.toBeInTheDocument();
+  });
+
+  it('announces and displays toast when action is dispatched', async () => {
     const { store } = reduxRender(<Toast />);
     act(() => {
       store.dispatch(showToast('Toast.SketchSaved'));
     });
 
-    const toast = screen.queryByRole('status');
-    expect(toast).toBeVisible();
-    expect(toast).toHaveTextContent('Sketch saved.');
+    const liveRegion = screen.getByRole('status');
+    expect(liveRegion).toHaveTextContent('Sketch saved.');
+
+    const visualToast = document.querySelector('.toast');
+    expect(visualToast).toBeInTheDocument();
+    expect(visualToast).toHaveTextContent('Sketch saved.');
   });
 
-  it('closes automatically after time', async () => {
+  it('closes visual toast automatically after time but keeps live region', async () => {
     const { store } = reduxRender(<Toast />);
     act(() => {
       store.dispatch(showToast('Toast.SketchSaved', 100));
     });
 
-    expect(screen.queryByRole('status')).toBeInTheDocument();
+    const liveRegion = screen.getByRole('status');
+    expect(liveRegion).toHaveTextContent('Sketch saved.');
+
+    expect(document.querySelector('.toast')).toBeInTheDocument();
 
     await waitFor(() => {
-      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+      expect(document.querySelector('.toast')).not.toBeInTheDocument();
     });
+
+    expect(liveRegion).toBeInTheDocument();
   });
 
   it('closes when "X" button is pressed', () => {
     reduxRender(<Toast />, {
       initialState: { toast: { isVisible: true, text: 'Hello World' } }
     });
-    const button = screen.getByRole('button');
+    const button = screen.getByRole('button', { name: 'Close Alert' });
     fireEvent.click(button);
-    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+
+    expect(document.querySelector('.toast')).not.toBeInTheDocument();
+    expect(screen.getByRole('status')).toBeInTheDocument();
   });
 });

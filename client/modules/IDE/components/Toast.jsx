@@ -9,19 +9,31 @@ export default function Toast() {
   const { text, isVisible } = useSelector((state) => state.toast);
   const dispatch = useDispatch();
   const { t } = useTranslation();
-  if (!isVisible) {
-    return null;
-  }
+
+  const translatedText = text ? t(text) : '';
+
   return (
-    <section className="toast" role="status" aria-live="polite">
-      <p>{t(text)}</p>
-      <button
-        className="toast__close"
-        onClick={() => dispatch(hideToast())}
-        aria-label="Close Alert"
+    <>
+      <div
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        className="sr-only"
       >
-        <ExitIcon focusable="false" aria-hidden="true" />
-      </button>
-    </section>
+        {isVisible ? translatedText : ''}
+      </div>
+      {isVisible && (
+        <section className="toast">
+          <p>{translatedText}</p>
+          <button
+            className="toast__close"
+            onClick={() => dispatch(hideToast())}
+            aria-label="Close Alert"
+          >
+            <ExitIcon focusable="false" aria-hidden="true" />
+          </button>
+        </section>
+      )}
+    </>
   );
 }
