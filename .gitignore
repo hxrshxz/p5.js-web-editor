@@ -24,3 +24,8 @@ duplicates.json
 coverage
 
 *.tsbuildinfo
+
+# Playwright e2e
+e2e/.test-data.json
+playwright-report/
+test-results/

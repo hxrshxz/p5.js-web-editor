@@ -1,0 +1,52 @@
+services:
+  mongo-e2e:
+    image: mongo:8.0
+    # NO named volume - ephemeral, fresh DB every run
+    # Expose on 27018 (not 27017) to avoid conflicts with local MongoDB
+    ports:
+      - '27018:27017'
+    healthcheck:
+      test: ['CMD', 'mongosh', '--eval', "db.adminCommand('ping')"]
+      interval: 3s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: ./
+      dockerfile: Dockerfile
+      target: development
+    environment:
+      - MONGO_URL=mongodb://mongo-e2e:27017/p5js-e2e-test
+      - NODE_ENV=development
+      - E2E=true
+      - API_URL=/editor
+      - SESSION_SECRET=e2e-test-secret-not-for-production
+      - PORT=8000
+      - PREVIEW_PORT=8002
+      - EDITOR_URL=http://localhost:8000
+      - PREVIEW_URL=http://localhost:8002
+      # Dummy OAuth credentials — real OAuth won't work in e2e but passport needs non-empty values
+      - GITHUB_ID=e2e-github-id-placeholder
+      - GITHUB_SECRET=e2e-github-secret-placeholder
+      - GITHUB_CALLBACK_URL=http://localhost:8000/auth/github/callback
+      - GOOGLE_ID=e2e-google-id-placeholder
+      - GOOGLE_SECRET=e2e-google-secret-placeholder
+      - GOOGLE_CALLBACK_URL=http://localhost:8000/auth/google/callback
+    ports:
+      - '8000:8000'
+      - '8002:8002'
+    # Run with node directly so E2E=true stays in env (npm start would override NODE_ENV).
+    # touch .env first so dotenv doesn't crash on missing file.
+    command: sh -c "touch .env && BABEL_DISABLE_CACHE=1 node -r @babel/register -r regenerator-runtime/runtime index.js"
+    volumes:
+      - .:/usr/src/app
+      - /usr/src/app/node_modules
+    depends_on:
+      mongo-e2e:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:8000/']
+      interval: 5s
+      timeout: 3s
+      retries: 15
