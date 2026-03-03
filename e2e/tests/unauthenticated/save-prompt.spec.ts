@@ -25,13 +25,18 @@ test.describe('Unauthenticated user — save prompt', () => {
     await modal.expectLoginAndSignupLinks();
   });
 
-  test('editor content is preserved after dismissing the save prompt', async ({
+  test('editor remains interactive after the save prompt appears', async ({
     editor,
     modal
   }) => {
+    // Editor must be visible and usable before the prompt
     await expect(editor.editorArticle).toBeVisible();
     await editor.pressCtrlS();
     await modal.waitForOverlay();
-    await expect(editor.editorArticle).toBeAttached();
+    // After the modal appears the editor pane must still be visible and
+    // scrollable — not hidden, displaced, or destroyed by the overlay.
+    await expect(editor.editorArticle).toBeVisible();
+    // The CodeMirror instance must remain in the DOM with editable content
+    await expect(editor.cmTextarea).toBeVisible();
   });
 });

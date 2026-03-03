@@ -179,8 +179,16 @@ export class EditorPage extends BasePage {
 
   /**
    * Replace the entire editor contents with the given code.
-   * Uses the CodeMirror API directly since the editor uses contenteditable.
-   * Waits for the debounced content sync to complete (1s debounce + buffer).
+   *
+   * Strategy:
+   *  1. Call CodeMirror's `setValue` API (synchronous, fires the CM onChange).
+   *  2. Poll until CM confirms it holds the new value (instant in practice).
+   *  3. Wait 1 500 ms for the app's 1-second debounced `updateFileContent`
+   *     Redux action to complete before the caller proceeds (e.g. clicks Run).
+   *
+   * The `waitForFunction` step eliminates any ambiguity about whether the
+   * evaluate call actually reached the CodeMirror instance; the subsequent
+   * wait is the minimum needed for the Redux debounce.
    */
   async setCode(code: string): Promise<void> {
     await this.page.evaluate((newCode: string) => {
@@ -189,8 +197,30 @@ export class EditorPage extends BasePage {
         cmEl.CodeMirror.setValue(newCode);
       }
     }, code);
-    // Wait for the 1-second debounced updateFileContent to sync to Redux
-    await this.page.waitForTimeout(1500);
+
+    // Verify CM actually holds the new value before starting the debounce wait
+    await this.page.waitForFunction(
+      (expected: string) => {
+        const cm = (document.querySelector('.CodeMirror') as any)?.CodeMirror;
+        return cm?.getValue() === expected;
+      },
+      code,
+      { timeout: 5_000 }
+    );
+
+    // Allow the app's 1-second debounce for updateFileContent to flush
+    await this.page.waitForTimeout(1_500);
+  }
+
+  /**
+   * Read the current CodeMirror editor contents.
+   * Useful for asserting code persistence after save + reload.
+   */
+  async getCode(): Promise<string> {
+    return this.page.evaluate(() => {
+      const cm = (document.querySelector('.CodeMirror') as any)?.CodeMirror;
+      return cm?.getValue() ?? '';
+    });
   }
 
   /**

@@ -7,14 +7,27 @@ test.describe('Unauthenticated user — run sketch', () => {
     await expect(editor.previewIframe).toBeVisible();
   });
 
-  test('can run a sketch and see the preview without being redirected to login', async ({
+  test('running a sketch executes p5.js code and shows output in the console', async ({
     page,
     editor
   }) => {
     await editor.gotoNew();
     await expect(editor.editorHolder).toBeVisible();
+
+    // Inject a sketch with a unique marker — proves JS actually executed
+    // inside the sandboxed preview, not just that the iframe mounted.
+    const marker = 'e2e-unauth-run-marker';
+    await editor.setCode(
+      `function setup() { createCanvas(100, 100); print('${marker}'); }\nfunction draw() {}`
+    );
+
+    // Open console before running to capture output immediately
+    await editor.openConsole();
     await editor.runSketch();
-    await expect(editor.previewIframe).toBeVisible({ timeout: 10_000 });
+
+    await editor.expectConsoleOutput(marker);
+
+    // Confirm the app did not redirect an unauthenticated user away from the editor
     expect(page.url()).not.toContain('/login');
     expect(page.url()).not.toContain('/signup');
   });
